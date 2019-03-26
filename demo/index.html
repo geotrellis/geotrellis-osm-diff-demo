@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Add a third party vector tile source</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.css' rel='stylesheet' />
+    <script src='./access-token.js' type="text/javascript"></script>
+    <style>
+        body { margin:0; padding:0; }
+        #map { position:absolute; top:0; bottom:0; width:100%; }
+    </style>
+</head>
+<body>
+
+<div id='map'></div>
+<script>
+
+var map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/light-v9',
+    zoom: 12,
+    center: [104.919430, 11.565971 ]
+});
+
+map.on('load', function() {
+    map.addLayer({
+        "id": "cambodia-osm-roads",
+        "type": "line",
+        "source": {
+            "type": "vector",
+            "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/cambodia-osm-roads-v2/{z}/{x}/{y}.mvt"],
+            "minzoom": 12,
+            "maxzoom": 12
+        },
+        "source-layer": "osm-roads",
+        "paint": {
+            "line-opacity": 0.8,
+            "line-color": "blue"
+        }
+    });
+});
+
+map.on("mouseenter", "osm-roads", function(e) {
+    map.getCanvas().style.cursor = 'pointer';
+    if (e.features && e.features[0] && e.features[0].properties) {
+        var feature = e.features[0];
+        var props = feature.properties;
+        console.log(props);
+    }
+});
+
+map.addControl(new mapboxgl.NavigationControl());
+
+</script>
+
+</body>
+</html>
