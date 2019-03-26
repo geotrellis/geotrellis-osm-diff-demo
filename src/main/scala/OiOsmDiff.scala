@@ -29,9 +29,9 @@ class OiOsmDiff(
   def saveTilesForZoom(zoom: Int, outputS3Prefix: URI): Unit = {
     val badRoads = Seq("proposed", "construction", "elevator")
 
-    val osmData = OSM.toGeometry(ss.read.orc(osmOrcUri.toString))
+    val osmData                           = OSM.toGeometry(ss.read.orc(osmOrcUri.toString))
     val isValid: (JTSGeometry) => Boolean = (jtsGeom: JTSGeometry) => jtsGeom.isValid()
-    val isValidUDF = udf(isValid)
+    val isValidUDF                        = udf(isValid)
 
     val osmRoadData = osmData
       .select("id", "_type", "geom", "tags")
@@ -41,13 +41,14 @@ class OiOsmDiff(
     val osmRoads = osmRoadData
       .filter(isRoad(col("tags")))
       .where(
-        (osmRoadData("geom").isNotNull && isValidUDF(osmRoadData("geom"))) &&
+        osmRoadData("geom").isNotNull &&
           osmRoadData("_type") === 2 &&
-          !osmRoadData("roadType").isin(badRoads: _*)
-      )
+          !osmRoadData("roadType").isin(badRoads: _*))
+
+    val validOsmRoads = osmRoads.where(isValidUDF(osmRoadData("geom")))
 
     val osmRoadsRDD: RDD[VTF[Geometry]] =
-      osmRoads.rdd
+      validOsmRoads.rdd
         .map { row =>
           val id = row.getAs[Long]("id")
 
