@@ -1,0 +1,3 @@
+// Copy this file to ./access-token.js and then add your access token to ./access-token.js
+// before running the demo
+mapboxgl.accessToken = '<add your access token here>';
