@@ -59,7 +59,8 @@ object Main
 
             try {
               val vectorDiff = new OiOsmDiff(osmOrcUri, oiGeoJsonUri)
-              vectorDiff.saveTilesForZoom(12, outputS3Prefix)
+              vectorDiff.saveOiTilesForZoom(12, outputS3Prefix)
+              vectorDiff.saveOsmTilesForZoom(12, outputS3Prefix)
             } catch {
               case e: Exception => throw e
             } finally {

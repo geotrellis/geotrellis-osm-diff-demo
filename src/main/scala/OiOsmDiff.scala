@@ -3,19 +3,17 @@ package oiosmdiff
 import java.net.URI
 
 import com.typesafe.scalalogging.LazyLogging
-
-import geotrellis.proj4.{WebMercator, LatLng}
+import geotrellis.proj4._
 import geotrellis.spark.SpatialKey
 import geotrellis.spark.tiling.ZoomedLayoutScheme
-import geotrellis.vector.{Geometry, Feature}
+import geotrellis.vector.{Feature, Geometry}
 import geotrellis.vectortile._
-
+import org.apache.spark.HashPartitioner
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.rdd.RDD
-
+import org.geotools.metadata.iso.SpatialAttributeSupplementImpl
 import org.locationtech.jts.geom.{Geometry => JTSGeometry}
-
 import vectorpipe._
 import vectorpipe.GenerateVT.VTF
 import vectorpipe.functions.osm._
@@ -26,7 +24,47 @@ class OiOsmDiff(
 )(@transient implicit val ss: SparkSession)
     extends LazyLogging
     with Serializable {
-  def saveTilesForZoom(zoom: Int, outputS3Prefix: URI): Unit = {
+
+  val layoutScheme = ZoomedLayoutScheme(WebMercator)
+
+
+  def saveOiTilesForZoom(zoom: Int, outputS3Prefix: URI): Unit = {
+
+    val partitioner = new HashPartitioner(partitions=64)
+
+    val layout       = layoutScheme.levelForZoom(zoom).layout
+    val projectedGeoJsonPerTileRDD: RDD[(SpatialKey, Iterable[OiRoad])] =
+      ss.sparkContext
+        .parallelize(Seq(oiGeoJsonUri))
+        .flatMap(uri => OiRoad.readFromGeoJson(uri))
+        .map(oiRoad => OiRoad(oiRoad.id, oiRoad.geom.reproject(LatLng, WebMercator)))
+        .flatMap(oiRoad => {
+          val keys = layout.mapTransform.keysForGeometry(oiRoad.geom)
+          keys.map(k => (k, oiRoad))
+        }).partitionBy(partitioner).groupByKey(partitioner)
+
+    val layerName = "oi-roads"
+    val vectorTileRDD: RDD[(SpatialKey, VectorTile)] = projectedGeoJsonPerTileRDD.map { case (key, oiRoads) =>
+      val extent = layout.mapTransform.keyToExtent(key)
+      val layer = StrictLayer(
+        name = layerName,
+        tileWidth = 4096,
+        version = 2,
+        tileExtent = extent,
+        points = Seq.empty, multiPoints = Seq.empty,
+        lines = Seq.empty, multiLines = Seq.empty,
+        polygons = Seq.empty,
+        multiPolygons = oiRoads.map(_.toVectorTileFeature).toSeq
+      )
+      (key, VectorTile(Map(layerName -> layer), extent))
+    }
+
+    val bucket    = outputS3Prefix.getHost
+    val path      = String.join("/", outputS3Prefix.getPath.stripPrefix("/"), layerName)
+    GenerateVT.save(vectorTileRDD, zoom, bucket, path)
+  }
+
+  def saveOsmTilesForZoom(zoom: Int, outputS3Prefix: URI): Unit = {
     val badRoads = Seq("proposed", "construction", "elevator")
 
     val osmData                           = OSM.toGeometry(ss.read.orc(osmOrcUri.toString))
@@ -78,15 +116,15 @@ class OiOsmDiff(
           Feature(reprojectedGeom, featureInfo)
         }
 
-    val layoutScheme = ZoomedLayoutScheme(WebMercator)
     val layout       = layoutScheme.levelForZoom(zoom).layout
     val keyedOsmRoadsRDD: RDD[(SpatialKey, (SpatialKey, VTF[Geometry]))] =
       GenerateVT.keyToLayout(osmRoadsRDD, layout)
 
-    val bucket = outputS3Prefix.getHost
-    val path   = outputS3Prefix.getPath.stripPrefix("/")
+    val layerName = "osm-roads"
+    val bucket    = outputS3Prefix.getHost
+    val path      = String.join("/", outputS3Prefix.getPath.stripPrefix("/"), layerName)
     val vectorTiles: RDD[(SpatialKey, VectorTile)] =
-      GenerateVT.makeVectorTiles(keyedOsmRoadsRDD, layout, "osm-roads")
+      GenerateVT.makeVectorTiles(keyedOsmRoadsRDD, layout, layerName)
     GenerateVT.save(vectorTiles, zoom, bucket, path)
   }
 }

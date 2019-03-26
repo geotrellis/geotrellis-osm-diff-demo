@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset='utf-8' />
-    <title>Add a third party vector tile source</title>
+    <title>OSM Roads Comparison</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
     <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.js'></script>
     <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.css' rel='stylesheet' />
@@ -24,22 +24,41 @@ var map = new mapboxgl.Map({
     center: [104.919430, 11.565971 ]
 });
 
+var osmLayer = {
+    "id": "cambodia-osm-roads",
+    "type": "line",
+    "source": {
+        "type": "vector",
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/cambodia-v4/osm-roads/{z}/{x}/{y}.mvt"],
+        "minzoom": 12,
+        "maxzoom": 12
+    },
+    "source-layer": "osm-roads",
+    "paint": {
+        "line-opacity": 0.8,
+        "line-color": "blue"
+    }
+};
+
+var oiLayer = {
+    "id": "cambodia-oi-roads",
+    "type": "fill",
+    "source": {
+        "type": "vector",
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/cambodia-v4/oi-roads/{z}/{x}/{y}.mvt"],
+        "minzoom": 12,
+        "maxzoom": 12
+    },
+    "source-layer": "oi-roads",
+    "paint": {
+        "fill-opacity": 0.5,
+        "fill-color": "green"
+    }
+};
+
 map.on('load', function() {
-    map.addLayer({
-        "id": "cambodia-osm-roads",
-        "type": "line",
-        "source": {
-            "type": "vector",
-            "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/cambodia-osm-roads-v2/{z}/{x}/{y}.mvt"],
-            "minzoom": 12,
-            "maxzoom": 12
-        },
-        "source-layer": "osm-roads",
-        "paint": {
-            "line-opacity": 0.8,
-            "line-color": "blue"
-        }
-    });
+    map.addLayer(oiLayer);
+    map.addLayer(osmLayer);
 });
 
 map.on("mouseenter", "osm-roads", function(e) {
@@ -52,7 +71,6 @@ map.on("mouseenter", "osm-roads", function(e) {
 });
 
 map.addControl(new mapboxgl.NavigationControl());
-
 </script>
 
 </body>
