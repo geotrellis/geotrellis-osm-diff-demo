@@ -5,16 +5,17 @@ import java.net.URI
 import java.security.InvalidParameterException
 
 import com.typesafe.scalalogging.LazyLogging
-import geotrellis.vector.{Feature, MultiPolygon}
+import geotrellis.vector.{Feature, Geometry, MultiPolygon}
 import geotrellis.vector.io._
-import geotrellis.vectortile.{VString, Value}
+import geotrellis.vectortile.VString
 import spray.json.JsonReader
 import spray.json.JsonParser.ParsingException
+import vectorpipe.GenerateVT.VTF
 
 import scala.collection.JavaConverters._
 
 final case class OiRoad(id: String, geom: MultiPolygon) {
-  def toVectorTileFeature: Feature[MultiPolygon, Map[String, Value]] = {
+  def toVectorTileFeature: VTF[Geometry] = {
     Feature(geom, Map("tileId" -> VString(id)))
   }
 }
