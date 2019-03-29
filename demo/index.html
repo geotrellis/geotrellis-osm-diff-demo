@@ -56,9 +56,27 @@ var oiLayer = {
     }
 };
 
+var diffLayer = {
+    "id": "cambodia-diff-roads",
+    "type": "line",
+    "source": {
+        "type": "vector",
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/cambodia-v7/osm-diff/{z}/{x}/{y}.mvt"],
+        "minzoom": 12,
+        "maxzoom": 12
+    },
+    "source-layer": "osm-diff",
+    "paint": {
+        "line-opacity": 0.8,
+        "line-color": "red"
+    }
+
+}
+
 map.on('load', function() {
     map.addLayer(oiLayer);
-    map.addLayer(osmLayer);
+    // map.addLayer(osmLayer);
+    map.addLayer(diffLayer);
 });
 
 map.on("mouseenter", "osm-roads", function(e) {

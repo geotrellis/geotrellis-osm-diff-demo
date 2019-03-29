@@ -13,7 +13,7 @@ import scala.reflect.runtime.universe._
 
 object Util {
 
-  private def getAllOf[G <: Geometry](features: Iterable[Feature[Geometry, Map[String, Value]]])(
+  def getAllOf[G <: Geometry](features: Iterable[Feature[Geometry, Map[String, Value]]])(
       implicit c: ClassTag[G]): Iterable[Feature[G, Map[String, Value]]] = {
     features.flatMap { feature => feature.geom.as[G].map(geom => Feature(geom, feature.data))}
   }

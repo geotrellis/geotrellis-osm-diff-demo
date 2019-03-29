@@ -61,6 +61,7 @@ object Main
               val vectorDiff = new OiOsmDiff(osmOrcUri, oiGeoJsonUri, outputS3Prefix)
               vectorDiff.saveOiTiles
               vectorDiff.saveOsmTiles
+              vectorDiff.saveDiffTiles
             } catch {
               case e: Exception => throw e
             } finally {

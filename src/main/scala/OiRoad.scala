@@ -16,7 +16,7 @@ import scala.collection.JavaConverters._
 
 final case class OiRoad(id: String, geom: MultiPolygon) {
   def toVectorTileFeature: VTF[Geometry] = {
-    Feature(geom, Map("tileId" -> VString(id)))
+    Feature(geom, Map("tileId" -> VString(id), "source" -> VString("oi")))
   }
 }
 
