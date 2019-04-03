@@ -58,8 +58,10 @@ object Main
                 .withJTS
 
             try {
-              val vectorDiff = new OiOsmDiff(osmOrcUri, oiGeoJsonUri)
-              vectorDiff.saveTilesForZoom(12, outputS3Prefix)
+              val vectorDiff = new OiOsmDiff(osmOrcUri, oiGeoJsonUri, outputS3Prefix)
+              vectorDiff.saveOiTiles
+              vectorDiff.saveOsmTiles
+              vectorDiff.saveDiffTiles
             } catch {
               case e: Exception => throw e
             } finally {
