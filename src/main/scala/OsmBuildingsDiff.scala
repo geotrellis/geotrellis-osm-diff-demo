@@ -14,10 +14,11 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.rdd.RDD
 import org.locationtech.jts.geom.{Geometry => JTSGeometry}
 import vectorpipe._
+import vectorpipe.internal.WayType
 import vectorpipe.GenerateVT.VTF
 import vectorpipe.functions.osm._
 
-class OiOsmDiff(
+class MsftOsmDiff(
     osmOrcUri: URI,
     oiGeoJsonUri: URI,
     outputS3Prefix: URI,
@@ -30,10 +31,10 @@ class OiOsmDiff(
   val layout       = layoutScheme.levelForZoom(zoom).layout
   val partitioner  = new HashPartitioner(partitions = 64)
 
-  lazy val oiGeoJsonRdd: RDD[(SpatialKey, Iterable[VTF[Geometry]])] = {
+  lazy val geoJsonRdd: RDD[(SpatialKey, Iterable[VTF[Geometry]])] = {
     ss.sparkContext
       .parallelize(Seq(oiGeoJsonUri))
-      .flatMap(uri => GeoJsonFeature.readFromGeoJson(uri, "oi"))
+      .flatMap(uri => GeoJsonFeature.readFromGeoJson(uri, "geojson"))
       .map(f => GeoJsonFeature(f.id, f.source, f.geom.reproject(LatLng, WebMercator)))
       .flatMap(f => {
         val keys = layout.mapTransform.keysForGeometry(f.geom)
@@ -43,32 +44,27 @@ class OiOsmDiff(
       .groupByKey(partitioner)
   }
 
-  def saveOiTiles: Unit = {
-    val layerName     = "oi-roads"
+  def saveGeoJsonTiles: Unit = {
+    val layerName     = "geojson"
     val bucket        = outputS3Prefix.getHost
     val path          = String.join("/", outputS3Prefix.getPath.stripPrefix("/"), layerName)
-    val vectorTileRdd = Util.makeVectorTileRDD(oiGeoJsonRdd, layerName, zoom)
+    val vectorTileRdd = Util.makeVectorTileRDD(geoJsonRdd, layerName, zoom)
     GenerateVT.save(vectorTileRdd, zoom, bucket, path)
   }
 
-  lazy val osmRoadsRdd: RDD[(SpatialKey, Iterable[VTF[Geometry]])] = {
-    val badRoads = Seq("proposed", "construction", "elevator")
-
-    val osmData                           = OSM.toGeometry(ss.read.orc(osmOrcUri.toString))
+  lazy val osmRdd: RDD[(SpatialKey, Iterable[VTF[Geometry]])] = {
     val isValid: (JTSGeometry) => Boolean = (jtsGeom: JTSGeometry) => jtsGeom.isValid()
     val isValidUDF                        = udf(isValid)
 
+    val osmData = OSM.toGeometry(ss.read.orc(osmOrcUri.toString))
     val osmRoadData = osmData
       .select("id", "_type", "geom", "tags")
-      .withColumn("roadType", osmData("tags").getField("highway"))
-      .withColumn("surfaceType", osmData("tags").getField("surface"))
+      .withColumn("buildingType", osmData("tags").getField("building"))
 
     val osmRoads = osmRoadData
-      .filter(isRoad(col("tags")))
-      .where(
-        osmRoadData("geom").isNotNull &&
-          osmRoadData("_type") === 2 &&
-          !osmRoadData("roadType").isin(badRoads: _*))
+      .filter(isBuilding(col("tags")))
+      .where(osmRoadData("geom").isNotNull &&
+        osmRoadData("_type") === WayType)
 
     val validOsmRoads = osmRoads.where(isValidUDF(osmRoadData("geom")))
 
@@ -76,14 +72,8 @@ class OiOsmDiff(
       .map { row =>
         val id = row.getAs[Long]("id")
 
-        val roadType =
-          row.getAs[String]("roadType") match {
-            case null      => "null"
-            case s: String => s
-          }
-
-        val surfaceType =
-          row.getAs[String]("surfaceType") match {
+        val buildingType =
+          row.getAs[String]("buildingType") match {
             case null      => "null"
             case s: String => s
           }
@@ -93,10 +83,9 @@ class OiOsmDiff(
 
         val featureInfo: Map[String, Value] =
           Map(
-            "id"          -> VString(id.toString),
-            "roadType"    -> VString(roadType),
-            "surfaceType" -> VString(surfaceType),
-            "source"      -> VString("osm")
+            "id"           -> VString(id.toString),
+            "buildingType" -> VString(buildingType),
+            "source"       -> VString("osm")
           )
         Feature(reprojectedGeom, featureInfo)
       }
@@ -111,47 +100,42 @@ class OiOsmDiff(
   }
 
   def saveOsmTiles: Unit = {
-    val layerName     = "osm-roads"
+    val layerName     = "osm"
     val bucket        = outputS3Prefix.getHost
     val path          = String.join("/", outputS3Prefix.getPath.stripPrefix("/"), layerName)
-    val vectorTileRDD = Util.makeVectorTileRDD(osmRoadsRdd, layerName, zoom)
+    val vectorTileRDD = Util.makeVectorTileRDD(osmRdd, layerName, zoom)
     GenerateVT.save(vectorTileRDD, zoom, bucket, path)
   }
 
   lazy val diffRdd: RDD[(SpatialKey, Iterable[VTF[Geometry]])] = {
 
-    val oiUnionByKeyRdd: RDD[(SpatialKey, VTF[Geometry])] = oiGeoJsonRdd.flatMapValues { features =>
-      val collection = GeometryCollection(features.map(_.geom))
+    def unionMultiPolygonFeatures(features: Iterable[VTF[Geometry]]): Traversable[VTF[Geometry]] = {
+      val collection                       = GeometryCollection(features.map(_.geom))
       val multiPolygons: Seq[MultiPolygon] = collection.getAll[MultiPolygon]
-      val polygons: Seq[Polygon] = collection.getAll[Polygon]
+      val polygons: Seq[Polygon]           = collection.getAll[Polygon]
 
       (multiPolygons ++ Seq(MultiPolygon(polygons))).unionGeometries.asMultiPolygon match {
         case Some(geom) => Some(Feature(geom, Map.empty[String, Value]))
-        case None => None
+        case None       => None
       }
     }
 
-    val osmUnionByKeyRdd: RDD[(SpatialKey, VTF[Geometry])] = osmRoadsRdd.flatMapValues { features =>
-      val collection = GeometryCollection(features.map(_.geom))
-      val multiLines: Seq[MultiLine] = collection.getAll[MultiLine]
-      val lines: Seq[Line] = collection.getAll[Line]
-      (multiLines ++ Seq(MultiLine(lines))).unionGeometries.asMultiLine match {
-        case Some(geom) => Some(Feature(geom, Map.empty[String, Value]))
-        case None => None
-      }
-    }
+    val geoJsonUnionByKeyRdd: RDD[(SpatialKey, VTF[Geometry])] =
+      geoJsonRdd.flatMapValues(unionMultiPolygonFeatures)
+    val osmUnionByKeyRdd: RDD[(SpatialKey, VTF[Geometry])] =
+      osmRdd.flatMapValues(unionMultiPolygonFeatures)
 
     // Left outer join to persist a tile with osm features that has no oi features since this is
     // effectively the same operation as osm - oi where oi is an empty feature set.
     val geomsByKeyRdd: RDD[(SpatialKey, Iterable[(VTF[Geometry], Option[VTF[Geometry]])])] =
-      osmUnionByKeyRdd.leftOuterJoin(oiUnionByKeyRdd, partitioner).groupByKey
+      osmUnionByKeyRdd.leftOuterJoin(geoJsonUnionByKeyRdd, partitioner).groupByKey
 
     geomsByKeyRdd.flatMapValues { geomPairs =>
       geomPairs.headOption match {
         case Some((osmFeature, None)) => Some(Seq(osmFeature))
-        case Some((osmFeature, maybeOiFeature)) => {
+        case Some((osmFeature, maybeGeoJsonFeature)) => {
           val osmGeom = osmFeature.geom.jtsGeom
-          val oiGeom  = maybeOiFeature.get.geom.jtsGeom
+          val oiGeom  = maybeGeoJsonFeature.get.geom.jtsGeom
           val diff    = osmGeom.difference(oiGeom)
           if (diff.isValid && !diff.isEmpty) {
             Some(Seq(Feature(Geometry(diff), Map.empty[String, Value])))

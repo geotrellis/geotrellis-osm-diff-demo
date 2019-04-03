@@ -25,13 +25,15 @@ object Main
           Opts
             .argument[URI]("osmOrcUri")
             .validate("oiGeoJsonUri must be an S3 or file Uri") { uri =>
-              uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("file") }
+              uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("file")
+            }
             .validate("osmOrcUri must be an .orc file") { _.getPath.endsWith(".orc") }
         val oiGeoJsonUriOpt =
           Opts
             .argument[URI]("oiGeoJsonUri")
             .validate("oiGeoJsonUri must be an S3 or file Uri") { uri =>
-              uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("file") }
+              uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("file")
+            }
             .validate("oiGeoJsonUri must be a .geojson file") { _.getPath.endsWith(".geojson") }
         val outputS3PrefixOpt =
           Opts
@@ -48,18 +50,18 @@ object Main
                 .set("spark.serializer", classOf[KryoSerializer].getName)
                 .set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
                 .set("spark.executorEnv.AWS_REGION", "us-east-1")
-                .set("spark.executorEnv.AWS_PROFILE", Properties.envOrElse("AWS_PROFILE", "default"))
+                .set("spark.executorEnv.AWS_PROFILE",
+                     Properties.envOrElse("AWS_PROFILE", "default"))
 
             implicit val ss =
-              SparkSession
-                .builder
+              SparkSession.builder
                 .config(conf)
                 .getOrCreate
                 .withJTS
 
             try {
-              val vectorDiff = new OiOsmDiff(osmOrcUri, oiGeoJsonUri, outputS3Prefix)
-              vectorDiff.saveOiTiles
+              val vectorDiff = new MsftOsmDiff(osmOrcUri, oiGeoJsonUri, outputS3Prefix)
+              vectorDiff.saveGeoJsonTiles
               vectorDiff.saveOsmTiles
               vectorDiff.saveDiffTiles
             } catch {

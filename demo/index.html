@@ -73,10 +73,64 @@ var diffLayer = {
 
 }
 
+var msftBuildingsLayer = {
+    "id": "delaware-buildings-msft",
+    "type": "fill",
+    "source": {
+        "type": "vector",
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/msft-buildings-delaware-v1/geojson/{z}/{x}/{y}.mvt"],
+        "minzoom": 12,
+        "maxzoom": 12
+    },
+    "source-layer": "geojson",
+    "paint": {
+        "fill-opacity": 0.5,
+        "fill-color": "green"
+    }
+};
+
+var osmBuildingsLayer = {
+    "id": "delaware-buildings-osm",
+    "type": "fill",
+    "source": {
+        "type": "vector",
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/msft-buildings-delaware-v1/osm/{z}/{x}/{y}.mvt"],
+        "minzoom": 12,
+        "maxzoom": 12
+    },
+    "source-layer": "osm",
+    "paint": {
+        "fill-opacity": 1.0,
+        "fill-color": "blue"
+    }
+};
+
+var buildingsDiffLayer = {
+    "id": "delaware-buildings-diff",
+    "type": "fill",
+    "source": {
+        "type": "vector",
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/msft-buildings-delaware-v1/osm-diff/{z}/{x}/{y}.mvt"],
+        "minzoom": 12,
+        "maxzoom": 12
+    },
+    "source-layer": "osm-diff",
+    "paint": {
+        "fill-opacity": 1.0,
+        "fill-color": "red"
+    }
+
+}
+
 map.on('load', function() {
     map.addLayer(oiLayer);
     // map.addLayer(osmLayer);
     map.addLayer(diffLayer);
+
+    map.addLayer(msftBuildingsLayer);
+    map.addLayer(osmBuildingsLayer);
+    map.addLayer(buildingsDiffLayer);
+
 });
 
 map.on("mouseenter", "osm-roads", function(e) {
