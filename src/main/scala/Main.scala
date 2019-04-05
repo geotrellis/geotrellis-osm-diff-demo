@@ -2,17 +2,13 @@ package oiosmdiff
 
 import java.net.URI
 
-import geotrellis.spark.io.kryo.KryoRegistrator
-
+import cats.implicits._
 import com.monovore.decline._
-
-import org.locationtech.geomesa.spark.jts._
-
+import geotrellis.spark.io.kryo.KryoRegistrator
 import org.apache.spark.SparkConf
 import org.apache.spark.serializer.KryoSerializer
 import org.apache.spark.sql.SparkSession
-
-import cats.implicits._
+import org.locationtech.geomesa.spark.jts._
 
 import scala.util.Properties
 
@@ -49,6 +45,7 @@ object Main
                 .set("spark.driver.memory", "2g")
                 .set("spark.serializer", classOf[KryoSerializer].getName)
                 .set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
+                .set("spark.sql.crossJoin.enabled", "true")
                 .set("spark.executorEnv.AWS_REGION", "us-east-1")
                 .set("spark.executorEnv.AWS_PROFILE",
                      Properties.envOrElse("AWS_PROFILE", "default"))
@@ -60,10 +57,8 @@ object Main
                 .withJTS
 
             try {
-              val vectorDiff = new MsftOsmDiff(osmOrcUri, oiGeoJsonUri, outputS3Prefix)
-              vectorDiff.saveGeoJsonTiles
-              vectorDiff.saveOsmTiles
-              vectorDiff.saveDiffTiles
+              val buildingsDiff = new BuildingsDiff(osmOrcUri, oiGeoJsonUri, outputS3Prefix)
+              buildingsDiff.makeTiles
             } catch {
               case e: Exception => throw e
             } finally {

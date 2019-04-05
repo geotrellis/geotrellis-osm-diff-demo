@@ -1,6 +1,6 @@
 package oiosmdiff
 
-import geotrellis.proj4.{LatLng, WebMercator}
+import geotrellis.proj4.WebMercator}
 import geotrellis.spark.SpatialKey
 import geotrellis.spark.tiling.ZoomedLayoutScheme
 import geotrellis.vector._

@@ -1,3 +1,18 @@
+/**
+  * This file generates the spatial difference of MSFT building - OSM building
+  * geometries using Spark RDDs. It is very fast because we don't require
+  * a spatial join but leaves geometric artifacts when the building geometries
+  * don't match exactly. The boilerplate here is very similar to OiOsmDiff.scala
+  *
+  * This implementation should be compared with the DataFrame VectorPipe
+  * implementation in BuildingsDiffPipeline. Both attempt to compute a similar
+  * metric via different means.
+  *
+  * The comparison is done by grouping geometries in each dataset by SpatialKey.
+  * Then those geometries are all unioned into one MultiPolygon.
+  * Lastly, the spatial difference of msft - osm is computed and the result
+  * generated as a vector tile layer.
+  */
 package oiosmdiff
 
 import java.net.URI

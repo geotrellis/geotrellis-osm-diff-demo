@@ -32,16 +32,17 @@ object GeoJsonFeature extends Serializable with LazyLogging {
 
     import spray.json.DefaultJsonProtocol._
     final case class GeoJsonProperties()
-    implicit val oiPropertiesJsonReader: JsonReader[GeoJsonProperties] = jsonFormat0(GeoJsonProperties)
+    implicit val oiPropertiesJsonReader: JsonReader[GeoJsonProperties] = jsonFormat0(
+      GeoJsonProperties)
 
     // Using streaming reads to avoid exploding heap, these files can be big
     // Requires that the GeoJSON input be formatted as a single line per feature
-    var invalidCount = 0
+    var invalidCount           = 0
     val reader: BufferedReader = new BufferedReader(new InputStreamReader(inputStream))
     reader.lines.iterator.asScala.flatMap { jsonString =>
       try {
         val feature = jsonString.stripSuffix(",").parseGeoJson[Feature[Geometry, GeoJsonProperties]]
-        if (feature.isValid) {
+        if (feature.geom.isValid) {
           Some(GeoJsonFeature(randomUUID().toString, sourceName, feature.geom))
         } else {
           invalidCount += 1

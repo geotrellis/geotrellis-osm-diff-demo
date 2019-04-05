@@ -21,7 +21,10 @@ var map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/mapbox/light-v9',
     zoom: 12,
-    center: [104.919430, 11.565971 ]
+    // Cambodia
+    // center: [104.919430, 11.565971 ]
+    // Delaware
+    center: [-75.5244, 39.1582]
 });
 
 var osmLayer = {
@@ -119,28 +122,52 @@ var buildingsDiffLayer = {
         "fill-opacity": 1.0,
         "fill-color": "red"
     }
+};
 
-}
+var vpBuildingDiffLayer = {
+    "id": "vectorpipe-delaware-buildings-diff",
+    "type": "fill",
+    "source": {
+        "type": "vector",
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/msft-buildings-delaware-v/{z}/{x}/{y}.mvt"],
+        "minzoom": 12,
+        "maxzoom": 12
+    },
+    "source-layer": "msft_buildings",
+    "paint": {
+        "fill-opacity": 1.0,
+        "fill-color": [
+            "match",
+            ["to-string", ["get", "hasOsm"]],
+            "true", "red",
+            "false", "blue",
+            "grey"
+        ]
+    }
+};
 
 map.on('load', function() {
     map.addLayer(oiLayer);
     // map.addLayer(osmLayer);
     map.addLayer(diffLayer);
 
-    map.addLayer(msftBuildingsLayer);
-    map.addLayer(osmBuildingsLayer);
-    map.addLayer(buildingsDiffLayer);
+    // map.addLayer(msftBuildingsLayer);
+    // map.addLayer(osmBuildingsLayer);
+    // map.addLayer(buildingsDiffLayer);
 
+    map.addLayer(vpBuildingDiffLayer);
 });
 
-map.on("mouseenter", "osm-roads", function(e) {
-    map.getCanvas().style.cursor = 'pointer';
+function mouseEnterHandler(e) {
     if (e.features && e.features[0] && e.features[0].properties) {
         var feature = e.features[0];
         var props = feature.properties;
         console.log(props);
     }
-});
+}
+
+map.on("mouseenter", "osm-roads", mouseEnterHandler);
+map.on("mouseenter", "vectorpipe-delaware-buildings-diff", mouseEnterHandler);
 
 map.addControl(new mapboxgl.NavigationControl());
 </script>
