@@ -24,20 +24,23 @@ object Main
               uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("file")
             }
             .validate("osmOrcUri must be an .orc file") { _.getPath.endsWith(".orc") }
-        val oiGeoJsonUriOpt =
+        val geoJsonUriOpt =
           Opts
-            .argument[URI]("oiGeoJsonUri")
-            .validate("oiGeoJsonUri must be an S3 or file Uri") { uri =>
-              uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("file")
+            .argument[URI]("geoJsonUri")
+            .validate("geoJsonUri must be an S3, HTTPS or file Uri") { uri =>
+              uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("https") || uri.getScheme
+                .startsWith("file")
             }
-            .validate("oiGeoJsonUri must be a .geojson file") { _.getPath.endsWith(".geojson") }
+            .validate("oiGeoJsonUri must be a .geojson or zip file") { uri =>
+              uri.getPath.endsWith(".geojson") || uri.getPath.endsWith(".zip")
+            }
         val outputS3PrefixOpt =
           Opts
             .argument[URI]("outputS3PathPrefix")
             .validate("outputS3PathPrefix must be an S3 Uri") { _.getScheme.startsWith("s3") }
 
-        (osmOrcUriOpt, oiGeoJsonUriOpt, outputS3PrefixOpt).mapN {
-          (osmOrcUri, oiGeoJsonUri, outputS3Prefix) =>
+        (osmOrcUriOpt, geoJsonUriOpt, outputS3PrefixOpt).mapN {
+          (osmOrcUri, geoJsonUri, outputS3Prefix) =>
             val conf =
               new SparkConf()
                 .setIfMissing("spark.master", "local[*]")
@@ -57,7 +60,7 @@ object Main
                 .withJTS
 
             try {
-              val buildingsDiff = new BuildingsDiff(osmOrcUri, oiGeoJsonUri, outputS3Prefix)
+              val buildingsDiff = new BuildingsDiff(osmOrcUri, geoJsonUri, outputS3Prefix)
               buildingsDiff.makeTiles
             } catch {
               case e: Exception => throw e

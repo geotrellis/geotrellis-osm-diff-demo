@@ -13,7 +13,7 @@ import java.net.URI
 
 import com.typesafe.scalalogging.LazyLogging
 import geotrellis.proj4.{LatLng, WebMercator}
-import geotrellis.vector.{Feature, Geometry}
+import geotrellis.vector.{Feature, Geometry, Point}
 import geotrellis.vectortile.{VBool, Value}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
@@ -32,8 +32,13 @@ case class BuildingsDiffPipeline(geometryColumn: String, baseOutputURI: URI, gri
 
   override def pack(row: Row, zoom: Int): VectorTileFeature[Geometry] = {
     val hasOsm             = row.getAs[Boolean]("has_osm")
-    val geom: jts.Geometry = row.getAs[jts.Geometry](geometryColumn)
-    Feature(Geometry(geom), Map("hasOsm" -> VBool(hasOsm)))
+    val properties = Map("hasOsm" -> VBool(hasOsm))
+    val jtsGeom: jts.Geometry = row.getAs[jts.Geometry](geometryColumn)
+    if (zoom > 11) {
+      Feature(Geometry(jtsGeom), properties)
+    } else {
+      Feature(Point(jtsGeom.getCentroid), properties)
+    }
   }
 }
 
@@ -90,7 +95,7 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
     VectorPipe(joinedDf,
                pipeline,
                "msft_buildings",
-               VectorPipe.Options(12, None, LatLng, Some(WebMercator)))
+               VectorPipe.Options(12, Some(10), LatLng, Some(WebMercator)))
 
     // Test OSM or MSFT Buildings DF export
 //    val options = VectorPipe.Options(12, None, LatLng, Some(WebMercator))

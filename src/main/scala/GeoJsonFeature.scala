@@ -1,9 +1,10 @@
 package oiosmdiff
 
 import java.io.{BufferedReader, FileInputStream, InputStreamReader}
-import java.net.URI
+import java.net.{URI, URL}
 import java.security.InvalidParameterException
 import java.util.UUID.randomUUID
+import java.util.zip.ZipInputStream
 
 import com.typesafe.scalalogging.LazyLogging
 import geotrellis.vector.{Feature, Geometry}
@@ -25,9 +26,15 @@ object GeoJsonFeature extends Serializable with LazyLogging {
   def readFromGeoJson(uri: URI, sourceName: String): Iterator[GeoJsonFeature] = {
     val inputStream = uri.getPath match {
       case p if p.endsWith(".geojson") || p.endsWith(".json") => {
-        new FileInputStream(uri.toString.stripPrefix("file://"))
+        uri.toURL.openStream
       }
-      case _ => throw new InvalidParameterException(s"File must be geojson: ${uri.toString}")
+      case p if p.endsWith(".zip") => {
+        val zip = new ZipInputStream(uri.toURL.openStream)
+        val entry = zip.getNextEntry
+        logger.info(s"Reading: $uri - ${entry.getName}")
+        zip
+      }
+      case _ => throw new InvalidParameterException(s"File must be geojson: ${uri}")
     }
 
     import spray.json.DefaultJsonProtocol._
