@@ -20,6 +20,7 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.jts.GeometryUDT
 import org.apache.spark.sql.types._
+import org.apache.spark.storage.StorageLevel
 import org.locationtech.geomesa.spark.jts._
 import org.locationtech.jts.{geom => jts}
 import vectorpipe.{OSM, VectorPipe}
@@ -31,8 +32,8 @@ case class BuildingsDiffPipeline(geometryColumn: String, baseOutputURI: URI, gri
     extends Pipeline {
 
   override def pack(row: Row, zoom: Int): VectorTileFeature[Geometry] = {
-    val hasOsm             = row.getAs[Boolean]("has_osm")
-    val properties = Map("hasOsm" -> VBool(hasOsm))
+    val hasOsm                = row.getAs[Boolean]("has_osm")
+    val properties            = Map("hasOsm" -> VBool(hasOsm))
     val jtsGeom: jts.Geometry = row.getAs[jts.Geometry](geometryColumn)
     if (zoom > 11) {
       Feature(Geometry(jtsGeom), properties)
@@ -83,8 +84,11 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
     val osmWithCentroid: DataFrame = osmDf
       .withColumnRenamed("geom", "osm_geometry")
       .withColumn("osm_centroid", st_centroid(col("osm_geometry")))
-    geoJsonDf
+      .persist(StorageLevel.MEMORY_AND_DISK)
+    val geoJsonDfRenamed = geoJsonDf
       .withColumnRenamed("geometry", "msft_geometry")
+      .persist(StorageLevel.MEMORY_AND_DISK)
+    geoJsonDfRenamed
       .join(osmWithCentroid, st_contains(col("msft_geometry"), col("osm_centroid")), "left")
       .withColumn("has_osm", st_isValid(col("osm_geometry")))
   }

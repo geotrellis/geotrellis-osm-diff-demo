@@ -43,12 +43,13 @@ object Main
           (osmOrcUri, geoJsonUri, outputS3Prefix) =>
             val conf =
               new SparkConf()
-                .setIfMissing("spark.master", "local[*]")
                 .setAppName("OI OSM Diff")
-                .set("spark.driver.memory", "2g")
+                .setIfMissing("spark.master", "local[*]")
+                .setIfMissing("spark.driver.memory", "2g")
                 .set("spark.serializer", classOf[KryoSerializer].getName)
                 .set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
                 .set("spark.sql.crossJoin.enabled", "true")
+                .set("spark.sql.broadcastTimeout", "600")
                 .set("spark.executorEnv.AWS_REGION", "us-east-1")
                 .set("spark.executorEnv.AWS_PROFILE",
                      Properties.envOrElse("AWS_PROFILE", "default"))
