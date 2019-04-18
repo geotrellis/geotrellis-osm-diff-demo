@@ -50,6 +50,7 @@ object Main
                 .set("spark.kryo.registrator", classOf[KryoRegistrator].getName)
                 .set("spark.sql.crossJoin.enabled", "true")
                 .set("spark.sql.broadcastTimeout", "600")
+                .set("spark.kryoserializer.buffer.max", "1g")
                 .set("spark.executorEnv.AWS_REGION", "us-east-1")
                 .set("spark.executorEnv.AWS_PROFILE",
                      Properties.envOrElse("AWS_PROFILE", "default"))
