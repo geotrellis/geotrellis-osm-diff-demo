@@ -10,5 +10,5 @@ object Dependencies {
   val sparkCore            = "org.apache.spark"            %% "spark-core"            % Version.spark
   val sparkHive            = "org.apache.spark"            %% "spark-hive"            % Version.spark
   val sparkSql             = "org.apache.spark"            %% "spark-sql"             % Version.spark
-  val vectorpipe           = "com.azavea"                  %% "vectorpipe"            % "1.0.0-RC1-SNAPSHOT"
+  val vectorpipe           = "com.azavea"                  %% "vectorpipe"            % "1.0.0-RC2"
 }

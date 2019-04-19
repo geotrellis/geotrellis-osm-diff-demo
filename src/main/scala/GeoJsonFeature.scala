@@ -1,4 +1,4 @@
-package oiosmdiff
+package osmdiff
 
 import java.io.{BufferedReader, FileInputStream, InputStreamReader}
 import java.net.{URI, URL}
@@ -12,12 +12,12 @@ import geotrellis.vector.io._
 import geotrellis.vectortile.VString
 import spray.json.JsonReader
 import spray.json.JsonParser.ParsingException
-import vectorpipe.GenerateVT.VTF
+import vectorpipe.vectortile.VectorTileFeature
 
 import scala.collection.JavaConverters._
 
 case class GeoJsonFeature(id: String, source: String, geom: Geometry) {
-  def toVectorTileFeature: VTF[Geometry] = {
+  def toVectorTileFeature: VectorTileFeature[Geometry] = {
     Feature(geom, Map("tileId" -> VString(id), "source" -> VString(source)))
   }
 }

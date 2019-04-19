@@ -1,4 +1,4 @@
-package oiosmdiff
+package osmdiff
 
 import java.net.URI
 

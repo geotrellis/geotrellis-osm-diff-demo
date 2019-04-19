@@ -7,7 +7,7 @@
   * comparison, it serves well enough to demo the capabilities of the DataFrame and
   * VectorPipe APIs.
   */
-package oiosmdiff
+package osmdiff
 
 import java.net.URI
 
@@ -23,13 +23,15 @@ import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
 import org.locationtech.geomesa.spark.jts._
 import org.locationtech.jts.{geom => jts}
-import vectorpipe.{OSM, VectorPipe}
+import vectorpipe.{OSM, VectorPipe, vectortile}
 import vectorpipe.functions.osm._
 import vectorpipe.internal.WayType
-import vectorpipe.vectortile.{Pipeline, VectorTileFeature}
+import vectorpipe.vectortile.{Pipeline, SingleLayer, VectorTileFeature}
 
 case class BuildingsDiffPipeline(geometryColumn: String, baseOutputURI: URI, gridResolution: Int)
     extends Pipeline {
+
+  val layerMultiplicity = SingleLayer("msft_buildings")
 
   override def pack(row: Row, zoom: Int): VectorTileFeature[Geometry] = {
     val hasOsm                = row.getAs[Boolean]("has_osm")
@@ -44,7 +46,10 @@ case class BuildingsDiffPipeline(geometryColumn: String, baseOutputURI: URI, gri
 }
 
 // Stub used for testing the input GeoJson and OSM data frames
-case class NoPropsPipeline(geometryColumn: String, baseOutputURI: URI, gridResolution: Int)
+case class NoPropsPipeline(geometryColumn: String,
+                           baseOutputURI: URI,
+                           gridResolution: Int,
+                           override val layerMultiplicity: vectortile.LayerMultiplicity)
     extends Pipeline {
 
   override def pack(row: Row, zoom: Int): VectorTileFeature[Geometry] = {
@@ -59,15 +64,19 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
     with Serializable {
 
   lazy val geoJsonDf: DataFrame = {
+
     val msftBuildingSchema = StructType(StructField("geometry", GeometryUDT) :: Nil)
     val rdd: RDD[Row] = ss.sparkContext
       .parallelize(Seq(geoJsonUri))
       .flatMap(uri => GeoJsonFeature.readFromGeoJson(uri, "geojson"))
       .map(f => Row(f.geom.jtsGeom))
     ss.createDataFrame(rdd, msftBuildingSchema)
+    // .write.format("orc").save("/tmp/geojson.orc")
+    // ss.read.option("spatial", "true").option("indexGeom", "true").schema(msftBuildingSchema).orc("/tmp/geojson.orc")
   }
 
   lazy val osmDf: DataFrame = {
+
     val osmData = OSM.toGeometry(ss.read.orc(osmOrcUri.toString))
     val osmRoadData = osmData
       .select("id", "_type", "geom", "tags")
@@ -98,14 +107,17 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
     val pipeline = BuildingsDiffPipeline("msft_geometry", outputS3Prefix, 16)
     VectorPipe(joinedDf,
                pipeline,
-               "msft_buildings",
-               VectorPipe.Options(12, Some(10), LatLng, Some(WebMercator)))
+               VectorPipe.Options(12, Some(10), LatLng, Some(WebMercator), orderAreas = true))
 
     // Test OSM or MSFT Buildings DF export
 //    val options = VectorPipe.Options(12, None, LatLng, Some(WebMercator))
-//    val msftPipeline = NoPropsPipeline("geometry", URI.create(outputS3Prefix.toString + "/msft"), 16)
-//    VectorPipe(geoJsonDf, msftPipeline, "geometry", options)
-//    val osmPipeline = NoPropsPipeline("geom", URI.create(outputS3Prefix.toString + "/osm"), 16)
-//    VectorPipe(osmDf, osmPipeline, "geom", options)
+//    val msftPipeline = NoPropsPipeline("geometry",
+//                                       URI.create(outputS3Prefix.toString + "/msft"),
+//                                       16,
+//                                       SingleLayer("msft"))
+//    VectorPipe(geoJsonDf, msftPipeline, options)
+//    val osmPipeline =
+//      NoPropsPipeline("geom", URI.create(outputS3Prefix.toString + "/osm"), 16, SingleLayer("osm"))
+//    VectorPipe(osmDf, osmPipeline, options)
   }
 }
