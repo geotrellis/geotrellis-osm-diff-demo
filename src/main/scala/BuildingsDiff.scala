@@ -21,7 +21,6 @@ import vectorpipe.functions.osm._
 import vectorpipe.internal.WayType
 import vectorpipe.vectortile.VectorTileFeature
 
-
 class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
     @transient implicit val ss: SparkSession)
     extends LazyLogging
@@ -83,9 +82,10 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
       }
     val joinedByKeyRdd = geoJsonRdd.leftOuterJoin(osmCentroidRdd, partitioner)
     joinedByKeyRdd.mapValues {
-      case (msftBuildings, None) => msftBuildings.map {
-        f => Feature(f.geom, Map("hasOsm" -> VBool(false)))
-      }
+      case (msftBuildings, None) =>
+        msftBuildings.map { f =>
+          Feature(f.geom, Map("hasOsm" -> VBool(false)))
+        }
       case (msftBuildings, Some(osmCentroids)) => {
         msftBuildings.map { feature =>
           val hasOsmMatch = osmCentroids.exists { osmFeature =>
@@ -104,7 +104,7 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
     val flattenedDiffRdd: RDD[Row] = diffRdd.map(_._2).flatMap(identity).map { feature =>
       val hasOsm: Boolean = feature.data.get("hasOsm") match {
         case Some(v: VBool) => v.value
-        case _ => false
+        case _              => false
       }
       Row(feature.geom.jtsGeom, hasOsm)
     }

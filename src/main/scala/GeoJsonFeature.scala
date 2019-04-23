@@ -29,7 +29,7 @@ object GeoJsonFeature extends Serializable with LazyLogging {
         uri.toURL.openStream
       }
       case p if p.endsWith(".zip") => {
-        val zip = new ZipInputStream(uri.toURL.openStream)
+        val zip   = new ZipInputStream(uri.toURL.openStream)
         val entry = zip.getNextEntry
         logger.info(s"Reading: $uri - ${entry.getName}")
         zip
