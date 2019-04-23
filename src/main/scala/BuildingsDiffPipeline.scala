@@ -10,6 +10,7 @@
 package osmdiff
 
 import java.net.URI
+import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
 import geotrellis.proj4.{LatLng, WebMercator}
@@ -70,33 +71,47 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
       .parallelize(Seq(geoJsonUri))
       .flatMap(uri => GeoJsonFeature.readFromGeoJson(uri, "geojson"))
       .map(f => Row(f.geom.jtsGeom))
-    ss.createDataFrame(rdd, msftBuildingSchema)
-    // .write.format("orc").save("/tmp/geojson.orc")
-    // ss.read.option("spatial", "true").option("indexGeom", "true").schema(msftBuildingSchema).orc("/tmp/geojson.orc")
+    val tmpFileName = s"/tmp/geojson-${UUID.randomUUID}.orc"
+    ss.createDataFrame(rdd, msftBuildingSchema).write.format("orc").save(tmpFileName)
+    ss.read
+      .format("geomesa")
+      .option("spatial", "true")
+      .option("cover", "true")
+      .schema(msftBuildingSchema)
+      .orc(tmpFileName)
   }
 
   lazy val osmDf: DataFrame = {
 
-    val osmData = OSM.toGeometry(ss.read.orc(osmOrcUri.toString))
-    val osmRoadData = osmData
+    val osmData = ss.read.orc(osmOrcUri.toString)
+    val osmDataAsGeoms = OSM.toGeometry(osmData)
       .select("id", "_type", "geom", "tags")
 
-    val osmRoads = osmRoadData
+    val osmBuildings = osmDataAsGeoms
       .filter(isBuilding(col("tags")))
-      .where(osmRoadData("geom").isNotNull &&
-        osmRoadData("_type") === WayType)
+      .where(osmDataAsGeoms("geom").isNotNull &&
+        osmDataAsGeoms("_type") === WayType)
 
-    osmRoads.where(st_isValid(col("geom")))
+    val processedOsm = osmBuildings.where(st_isValid(col("geom")))
+    processedOsm.printSchema
+    val tmpFileName = s"/tmp/osm-${UUID.randomUUID}.orc"
+    processedOsm.write.format("orc").save(tmpFileName)
+    val osmSchema = processedOsm.schema
+    ss.read
+      .format("geomesa")
+      .option("spatial", "true")
+      .schema(osmSchema)
+      .orc(tmpFileName)
   }
 
   lazy val joinedDf: DataFrame = {
     val osmWithCentroid: DataFrame = osmDf
       .withColumnRenamed("geom", "osm_geometry")
       .withColumn("osm_centroid", st_centroid(col("osm_geometry")))
-      .persist(StorageLevel.MEMORY_AND_DISK)
+//      .persist(StorageLevel.MEMORY_AND_DISK)
     val geoJsonDfRenamed = geoJsonDf
       .withColumnRenamed("geometry", "msft_geometry")
-      .persist(StorageLevel.MEMORY_AND_DISK)
+//      .persist(StorageLevel.MEMORY_AND_DISK)
     geoJsonDfRenamed
       .join(osmWithCentroid, st_contains(col("msft_geometry"), col("osm_centroid")), "left")
       .withColumn("has_osm", st_isValid(col("osm_geometry")))

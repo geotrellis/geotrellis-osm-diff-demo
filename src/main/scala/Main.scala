@@ -14,7 +14,7 @@ import scala.util.Properties
 
 object Main
     extends CommandApp(
-      name = "oi-osm-diff",
+      name = "osm-diff",
       header = "Diffs OI derived road data with OSM",
       main = {
         val osmOrcUriOpt =
@@ -43,7 +43,7 @@ object Main
           (osmOrcUri, geoJsonUri, outputS3Prefix) =>
             val conf =
               new SparkConf()
-                .setAppName("OI OSM Diff")
+                .setAppName("OSM Diff: MSFT Buildings")
                 .setIfMissing("spark.master", "local[*]")
                 .setIfMissing("spark.driver.memory", "2g")
                 .set("spark.serializer", classOf[KryoSerializer].getName)
