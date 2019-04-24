@@ -38,9 +38,14 @@ object Main
           Opts
             .argument[URI]("outputS3PathPrefix")
             .validate("outputS3PathPrefix must be an S3 Uri") { _.getScheme.startsWith("s3") }
+        val numPartitionsOpt =
+          Opts
+            .option[Int]("numPartitions",
+                         help = "Number of partitions for Spark HashPartitioner. Defaults to 64.")
+            .withDefault(64)
 
-        (osmOrcUriOpt, geoJsonUriOpt, outputS3PrefixOpt).mapN {
-          (osmOrcUri, geoJsonUri, outputS3Prefix) =>
+        (osmOrcUriOpt, geoJsonUriOpt, outputS3PrefixOpt, numPartitionsOpt).mapN {
+          (osmOrcUri, geoJsonUri, outputS3Prefix, numPartitions) =>
             val conf =
               new SparkConf()
                 .setAppName("OSM Diff: MSFT Buildings")
@@ -62,7 +67,8 @@ object Main
                 .withJTS
 
             try {
-              val buildingsDiff = new BuildingsDiff(osmOrcUri, geoJsonUri, outputS3Prefix)
+              val buildingsDiff =
+                new BuildingsDiff(osmOrcUri, geoJsonUri, outputS3Prefix, numPartitions)
               buildingsDiff.makeTiles
             } catch {
               case e: Exception => throw e

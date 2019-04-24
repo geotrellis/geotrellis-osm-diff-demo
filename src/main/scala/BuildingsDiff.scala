@@ -21,7 +21,7 @@ import vectorpipe.functions.osm._
 import vectorpipe.internal.WayType
 import vectorpipe.vectortile.VectorTileFeature
 
-class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
+class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI, numPartitions: Int)(
     @transient implicit val ss: SparkSession)
     extends LazyLogging
     with Serializable {
@@ -29,7 +29,7 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
   val maxZoom      = 12
   val layoutScheme = ZoomedLayoutScheme(WebMercator)
   val layout       = layoutScheme.levelForZoom(maxZoom).layout
-  val partitioner  = new HashPartitioner(partitions = 64)
+  val partitioner  = new HashPartitioner(numPartitions)
 
   lazy val geoJsonRdd: RDD[(SpatialKey, Iterable[VectorTileFeature[Geometry]])] = {
     ss.sparkContext
@@ -99,7 +99,6 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI)(
   }
 
   def makeTiles: Unit = {
-
     // TODO: Dedupe geometries that might exist across multiple SpatialKeys?
     val flattenedDiffRdd: RDD[Row] = diffRdd.map(_._2).flatMap(identity).map { feature =>
       val hasOsm: Boolean = feature.data.get("hasOsm") match {
