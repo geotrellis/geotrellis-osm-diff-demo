@@ -23,8 +23,10 @@ var map = new mapboxgl.Map({
     zoom: 12,
     // Cambodia
     // center: [104.919430, 11.565971 ]
-    // Delaware
-    center: [-75.5244, 39.1582]
+    // Dover, Delaware
+    // center: [-75.5244, 39.1582]
+    // Monterey, CA
+    center: [-121.888333, 36.588500]
 });
 
 var osmLayer = {
@@ -76,60 +78,12 @@ var diffLayer = {
 
 }
 
-var msftBuildingsLayer = {
-    "id": "delaware-buildings-msft",
-    "type": "fill",
-    "source": {
-        "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/msft-buildings-delaware-v1/geojson/{z}/{x}/{y}.mvt"],
-        "minzoom": 12,
-        "maxzoom": 12
-    },
-    "source-layer": "geojson",
-    "paint": {
-        "fill-opacity": 0.5,
-        "fill-color": "green"
-    }
-};
-
-var osmBuildingsLayer = {
-    "id": "delaware-buildings-osm",
-    "type": "fill",
-    "source": {
-        "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/msft-buildings-delaware-v1/osm/{z}/{x}/{y}.mvt"],
-        "minzoom": 12,
-        "maxzoom": 12
-    },
-    "source-layer": "osm",
-    "paint": {
-        "fill-opacity": 1.0,
-        "fill-color": "blue"
-    }
-};
-
-var buildingsDiffLayer = {
-    "id": "delaware-buildings-diff",
-    "type": "fill",
-    "source": {
-        "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/msft-buildings-delaware-v1/osm-diff/{z}/{x}/{y}.mvt"],
-        "minzoom": 12,
-        "maxzoom": 12
-    },
-    "source-layer": "osm-diff",
-    "paint": {
-        "fill-opacity": 1.0,
-        "fill-color": "red"
-    }
-};
-
 var vpBuildingDiffLayer = {
     "id": "vectorpipe-delaware-buildings-diff",
     "type": "fill",
     "source": {
         "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/spark-msft-buildings-delaware-v/{z}/{x}/{y}.mvt"],
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/spark-msft-buildings-california-v01/{z}/{x}/{y}.mvt"],
         "minzoom": 12,
         "maxzoom": 12
     },
@@ -151,7 +105,7 @@ var vpBuildingHeatmapLayer = {
     "type": "heatmap",
     "source": {
         "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/msft-buildings-delaware-v5/{z}/{x}/{y}.mvt"],
+        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/spark-msft-buildings-california-v01/{z}/{x}/{y}.mvt"],
         "minzoom": 10,
         "maxzoom": 12
     },
@@ -182,10 +136,6 @@ map.on('load', function() {
     map.addLayer(oiLayer);
     // map.addLayer(osmLayer);
     map.addLayer(diffLayer);
-
-    // map.addLayer(msftBuildingsLayer);
-    // map.addLayer(osmBuildingsLayer);
-    // map.addLayer(buildingsDiffLayer);
 
     map.addLayer(vpBuildingDiffLayer, "waterway-label");
     map.addLayer(vpBuildingHeatmapLayer, "waterway-label");
