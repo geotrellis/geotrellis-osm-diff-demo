@@ -21,7 +21,7 @@ import vectorpipe.functions.osm._
 import vectorpipe.internal.WayType
 import vectorpipe.vectortile.VectorTileFeature
 
-class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI, numPartitions: Int)(
+class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, numPartitions: Int)(
     @transient implicit val ss: SparkSession)
     extends LazyLogging
     with Serializable {
@@ -33,7 +33,7 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUri: URI, outputS3Prefix: URI, numPar
 
   lazy val geoJsonRdd: RDD[(SpatialKey, Iterable[VectorTileFeature[Geometry]])] = {
     ss.sparkContext
-      .parallelize(Seq(geoJsonUri))
+      .parallelize(geoJsonUris)
       .flatMap(uri => GeoJsonFeature.readFromGeoJson(uri, "geojson"))
       .map(feature => feature.geom.reproject(LatLng, WebMercator))
       .flatMap(geom => {
