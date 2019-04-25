@@ -37,8 +37,11 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, 
       .flatMap(uri => GeoJsonFeature.readFromGeoJson(uri, "geojson"))
       .map(feature => feature.geom.reproject(LatLng, WebMercator))
       .flatMap(geom => {
-        val keys = layout.mapTransform.keysForGeometry(geom)
-        keys.map(k => (k, Feature(geom, Map.empty[String, Value])))
+        val jtsGeom = geom.jtsGeom
+        jtsGeom.normalize
+        val normalizedGeom = Geometry(jtsGeom)
+        val keys = layout.mapTransform.keysForGeometry(normalizedGeom)
+        keys.map(k => (k, Feature(normalizedGeom, Map.empty[String, Value])))
       })
       .partitionBy(partitioner)
       .groupByKey(partitioner)
@@ -59,6 +62,7 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, 
     processedOsm.rdd
       .map { row =>
         val geom            = row.getAs[JTSGeometry]("geom")
+        geom.normalize
         val reprojectedGeom = Geometry(geom).reproject(LatLng, WebMercator)
         Feature(reprojectedGeom, Map.empty[String, Value])
       }
