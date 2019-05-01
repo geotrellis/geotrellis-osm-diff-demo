@@ -11,7 +11,7 @@ import geotrellis.vectortile.{VBool, Value}
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.jts.GeometryUDT
 import org.apache.spark.sql.types._
 import org.locationtech.geomesa.spark.jts._
@@ -40,7 +40,7 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, 
         val jtsGeom = geom.jtsGeom
         jtsGeom.normalize
         val normalizedGeom = Geometry(jtsGeom)
-        val keys = layout.mapTransform.keysForGeometry(normalizedGeom)
+        val keys           = layout.mapTransform.keysForGeometry(normalizedGeom)
         keys.map(k => (k, Feature(normalizedGeom, Map.empty[String, Value])))
       })
       .partitionBy(partitioner)
@@ -61,7 +61,7 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, 
     val processedOsm = osmBuildings.where(st_isValid(col("geom")))
     processedOsm.rdd
       .map { row =>
-        val geom            = row.getAs[JTSGeometry]("geom")
+        val geom = row.getAs[JTSGeometry]("geom")
         geom.normalize
         val reprojectedGeom = Geometry(geom).reproject(LatLng, WebMercator)
         Feature(reprojectedGeom, Map.empty[String, Value])
@@ -116,12 +116,14 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, 
     val rowSchema = StructType(
       StructField("geometry", GeometryUDT) ::
         StructField("has_osm", BooleanType) :: Nil)
-    val diffDf: DataFrame = ss.createDataFrame(flattenedDiffRdd, rowSchema)
+    val diffDf: DataFrame =
+      ss.createDataFrame(flattenedDiffRdd, rowSchema).withColumn("weight", lit(1))
 
     // Export as vector tiles via VectorPipe
-    val pipeline = BuildingsDiffPipeline("geometry", outputS3Prefix, 16)
+    val gridResolution = 4096
+    val pipeline = BuildingsDiffPipeline("geometry", outputS3Prefix, gridResolution)
     VectorPipe(diffDf,
                pipeline,
-               VectorPipe.Options(maxZoom, Some(10), WebMercator, None, orderAreas = true))
+               VectorPipe.Options(maxZoom, Some(4), WebMercator, None, true, gridResolution))
   }
 }

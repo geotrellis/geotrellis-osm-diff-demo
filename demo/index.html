@@ -24,9 +24,9 @@ var map = new mapboxgl.Map({
     // Cambodia
     // center: [104.919430, 11.565971 ]
     // Dover, Delaware
-    // center: [-75.5244, 39.1582]
+    center: [-75.5244, 39.1582]
     // Monterey, CA
-    center: [-121.888333, 36.588500]
+    // center: [-121.888333, 36.588500]
 });
 
 var osmLayer = {
@@ -78,12 +78,13 @@ var diffLayer = {
 
 }
 
+var msftBuildingsTileUrl = "https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/awf-msft-buildings-delaware-v06/{z}/{x}/{y}.mvt";
 var vpBuildingDiffLayer = {
     "id": "vectorpipe-delaware-buildings-diff",
     "type": "fill",
     "source": {
         "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/spark-msft-buildings-california-v01/{z}/{x}/{y}.mvt"],
+        "tiles": [msftBuildingsTileUrl],
         "minzoom": 12,
         "maxzoom": 12
     },
@@ -100,35 +101,76 @@ var vpBuildingDiffLayer = {
     }
 };
 
-var vpBuildingHeatmapLayer = {
+// var vpBuildingHeatmapLayer = {
+//     "id": "vectorpipe-delaware-buildings-heatmap",
+//     "type": "heatmap",
+//     "source": {
+//         "type": "vector",
+//         "tiles": [msftBuildingsTileUrl],
+//         "minzoom": 1,
+//         "maxzoom": 12
+//     },
+//     "filter": ["==", ["get", "hasOsm"], true],
+//     "minzoom": 1,
+//     "maxzoom": 12,
+//     "source-layer": "msft_buildings",
+//     "paint": {
+//       "heatmap-opacity": 0.8,
+//       "heatmap-color": [
+//         "interpolate",
+//         ["linear"],
+//         ["heatmap-density"],
+//         0,
+//         "rgba(0, 0, 255, 0)",
+//         0.1,
+//         "#fddac2",
+//         0.3,
+//         "#fcc29a",
+//         0.5,
+//         "#fba971",
+//         0.7,
+//         "#fa9149",
+//         1,
+//         "#fa7921"
+//       ],
+//       "heatmap-radius": [
+//         "interpolate",
+//         ["linear"],
+//         ["zoom"],
+//         0,
+//         5,
+//         12,
+//         10
+//       ]
+//     }
+// };
+
+// At least for testing VectorPipe clustering results, points with radius based on zoom level is just
+// as good as a heatmap
+var vpBuildingCircleLayer = {
     "id": "vectorpipe-delaware-buildings-heatmap",
-    "type": "heatmap",
+    "type": "circle",
     "source": {
         "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/spark-msft-buildings-california-v01/{z}/{x}/{y}.mvt"],
-        "minzoom": 10,
+        "tiles": [msftBuildingsTileUrl],
+        "minzoom": 1,
         "maxzoom": 12
     },
-    "minzoom": 10,
+    "filter": ["==", ["get", "hasOsm"], true],
+    "minzoom": 1,
     "maxzoom": 12,
     "source-layer": "msft_buildings",
-    "filter": ["==", ["get", "hasOsm"], true],
     "paint": {
-      "heatmap-color": [
-        "interpolate",
-        ["linear"],
-        ["heatmap-density"],
-        0, "rgba(184, 197, 210, 0)",
-        0.5, "rgba(250, 121, 33, 0.7)",
-        1, "rgba(250, 121, 33, 1)"
-      ],
-      "heatmap-radius": [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        10, 5,
-        11, 8
-      ]
+        "circle-color": "#fa7921",
+        "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            6,
+            1,
+            22,
+            8
+        ]
     }
 };
 
@@ -138,7 +180,7 @@ map.on('load', function() {
     map.addLayer(diffLayer);
 
     map.addLayer(vpBuildingDiffLayer, "waterway-label");
-    map.addLayer(vpBuildingHeatmapLayer, "waterway-label");
+    map.addLayer(vpBuildingCircleLayer, "waterway-label");
 });
 
 function mouseEnterHandler(e) {
@@ -151,6 +193,7 @@ function mouseEnterHandler(e) {
 
 map.on("mouseenter", "osm-roads", mouseEnterHandler);
 map.on("mouseenter", "vectorpipe-delaware-buildings-diff", mouseEnterHandler);
+map.on("mouseenter", "vectorpipe-delaware-buildings-heatmap", mouseEnterHandler);
 
 map.addControl(new mapboxgl.NavigationControl());
 </script>
