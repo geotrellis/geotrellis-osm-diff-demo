@@ -30,26 +30,22 @@ object Main
             .validate("outputS3PathPrefix must be an S3 Uri") { _.getScheme.startsWith("s3") }
         val buildingsUriOpt =
           Opts
-            .option[URI]("buildings", help = "URI to GeoJson (optionally zipped) buildings file")
+            .option[URI]("buildings", help = "URI to GeoJson (optionally zipped) buildings file. If not provided, run for all US States.")
             .validate("buildings must be an S3, HTTPS or file Uri") { uri =>
               uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("https") || uri.getScheme
                 .startsWith("file")
             }
             .validate("buildings must be a .geojson or zip file") { uri =>
               uri.getPath.endsWith(".geojson") || uri.getPath.endsWith(".zip")
-            }
-        val buildingsAllOpt = Opts
-          .flag("all-buildings",
-                help = "Read all buildings in US. If not provided, --buildings must be provided")
-          .orFalse
+            }.orNone
         val numPartitionsOpt =
           Opts
             .option[Int]("numPartitions",
                          help = "Number of partitions for Spark HashPartitioner. Defaults to 64.")
             .withDefault(64)
 
-        (osmOrcUriOpt, outputS3PrefixOpt, buildingsUriOpt, buildingsAllOpt, numPartitionsOpt).mapN {
-          (osmOrcUri, outputS3Prefix, buildingsUri, buildingsAll, numPartitions) =>
+        (osmOrcUriOpt, outputS3PrefixOpt, buildingsUriOpt, numPartitionsOpt).mapN {
+          (osmOrcUri, outputS3Prefix, buildingsUri, numPartitions) =>
             val conf =
               new SparkConf()
                 .setAppName("OSM Diff: MSFT Buildings")
@@ -70,10 +66,9 @@ object Main
                 .withJTS
 
             try {
-              val buildingUris: Seq[URI] = if (buildingsAll) {
-                USBuilding.geoJsonURLs.map(new URI(_))
-              } else {
-                Seq(buildingsUri)
+              val buildingUris: Seq[URI] = buildingsUri match {
+                case Some(uri) => Seq(uri)
+                case None => USBuilding.geoJsonURLs.map(new URI(_))
               }
               val buildingsDiff =
                 new BuildingsDiff(osmOrcUri, buildingUris, outputS3Prefix, numPartitions)
