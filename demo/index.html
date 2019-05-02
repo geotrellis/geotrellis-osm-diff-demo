@@ -24,9 +24,9 @@ var map = new mapboxgl.Map({
     // Cambodia
     // center: [104.919430, 11.565971 ]
     // Dover, Delaware
-    center: [-75.5244, 39.1582]
+    // center: [-75.5244, 39.1582]
     // Monterey, CA
-    // center: [-121.888333, 36.588500]
+    center: [-121.888333, 36.588500]
 });
 
 var osmLayer = {
@@ -78,7 +78,7 @@ var diffLayer = {
 
 }
 
-var msftBuildingsTileUrl = "https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/awf-msft-buildings-delaware-v06/{z}/{x}/{y}.mvt";
+var msftBuildingsTileUrl = "https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/spark-msft-buildings-california-v02/{z}/{x}/{y}.mvt";
 var vpBuildingDiffLayer = {
     "id": "vectorpipe-delaware-buildings-diff",
     "type": "fill",
