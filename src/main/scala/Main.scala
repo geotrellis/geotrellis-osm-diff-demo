@@ -24,28 +24,37 @@ object Main
               uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("file")
             }
             .validate("osmOrcUri must be an .orc file") { _.getPath.endsWith(".orc") }
-        val outputS3PrefixOpt =
+        val outputPathOpt =
           Opts
-            .argument[URI]("outputS3PathPrefix")
-            .validate("outputS3PathPrefix must be an S3 Uri") { _.getScheme.startsWith("s3") }
+            .argument[URI]("outputPath")
+        val outputFormatOpt =
+          Opts
+            .option[String]("outputFormat",
+                            help = "Output format. Must be one of 'S3' or 'GeoJson'.")
+            .withDefault("S3")
+            .map(OutputFormat.withName(_))
         val buildingsUriOpt =
           Opts
-            .option[URI]("buildings", help = "URI to GeoJson (optionally zipped) buildings file. If not provided, run for all US States.")
+            .option[URI](
+              "buildings",
+              help =
+                "URI to GeoJson (optionally zipped) buildings file. If not provided, run for all US States.")
             .validate("buildings must be an S3, HTTPS or file Uri") { uri =>
               uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("https") || uri.getScheme
                 .startsWith("file")
             }
             .validate("buildings must be a .geojson or zip file") { uri =>
               uri.getPath.endsWith(".geojson") || uri.getPath.endsWith(".zip")
-            }.orNone
+            }
+            .orNone
         val numPartitionsOpt =
           Opts
             .option[Int]("numPartitions",
                          help = "Number of partitions for Spark HashPartitioner. Defaults to 64.")
             .withDefault(64)
 
-        (osmOrcUriOpt, outputS3PrefixOpt, buildingsUriOpt, numPartitionsOpt).mapN {
-          (osmOrcUri, outputS3Prefix, buildingsUri, numPartitions) =>
+        (osmOrcUriOpt, outputPathOpt, buildingsUriOpt, numPartitionsOpt, outputFormatOpt).mapN {
+          (osmOrcUri, outputPath, buildingsUri, numPartitions, outputFormat) =>
             val conf =
               new SparkConf()
                 .setAppName("OSM Diff: MSFT Buildings")
@@ -68,11 +77,11 @@ object Main
             try {
               val buildingUris: Seq[URI] = buildingsUri match {
                 case Some(uri) => Seq(uri)
-                case None => USBuilding.geoJsonURLs.map(new URI(_))
+                case None      => USBuilding.geoJsonURLs.map(new URI(_))
               }
               val buildingsDiff =
-                new BuildingsDiff(osmOrcUri, buildingUris, outputS3Prefix, numPartitions)
-              buildingsDiff.makeTiles
+                new BuildingsDiff(osmOrcUri, buildingUris, numPartitions)
+              buildingsDiff.write(outputPath, outputFormat)
             } catch {
               case e: Exception => throw e
             } finally {

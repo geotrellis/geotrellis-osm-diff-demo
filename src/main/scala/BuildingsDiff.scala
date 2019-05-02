@@ -21,7 +21,12 @@ import vectorpipe.functions.osm._
 import vectorpipe.internal.WayType
 import vectorpipe.vectortile.VectorTileFeature
 
-class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, numPartitions: Int)(
+object OutputFormat extends Enumeration {
+  type OutputFormat = Value
+  val S3, GeoJson = Value
+}
+
+class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], numPartitions: Int)(
     @transient implicit val ss: SparkSession)
     extends LazyLogging
     with Serializable {
@@ -102,7 +107,7 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, 
     }
   }
 
-  def makeTiles: Unit = {
+  lazy val diffDataFrame: DataFrame = {
     // TODO: Dedupe geometries that might exist across multiple SpatialKeys?
     val flattenedDiffRdd: RDD[Row] = diffRdd.map(_._2).flatMap(identity).map { feature =>
       val hasOsm: Boolean = feature.data.get("hasOsm") match {
@@ -116,13 +121,27 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], outputS3Prefix: URI, 
     val rowSchema = StructType(
       StructField("geometry", GeometryUDT) ::
         StructField("has_osm", BooleanType) :: Nil)
-    val diffDf: DataFrame =
-      ss.createDataFrame(flattenedDiffRdd, rowSchema).withColumn("weight", lit(1))
+    ss.createDataFrame(flattenedDiffRdd, rowSchema).withColumn("weight", lit(1))
+  }
+
+  def write(uri: URI, format: OutputFormat.Value): Unit = {
+    format match {
+      case OutputFormat.S3 => makeTiles(uri)
+      case OutputFormat.GeoJson => makeGeoJson(uri)
+    }
+  }
+
+  private def makeGeoJson(outputPath: URI): Unit = {
+    import org.locationtech.geomesa.spark.jts.util.GeoJSONExtensions._
+    diffDataFrame.toGeoJSON(0).write.text(outputPath.toString)
+  }
+
+  private def makeTiles(outputS3Prefix: URI): Unit = {
 
     // Export as vector tiles via VectorPipe
     val gridResolution = 4096
     val pipeline = BuildingsDiffPipeline("geometry", outputS3Prefix, gridResolution)
-    VectorPipe(diffDf,
+    VectorPipe(diffDataFrame,
                pipeline,
                VectorPipe.Options(maxZoom, Some(4), WebMercator, None, true, gridResolution))
   }

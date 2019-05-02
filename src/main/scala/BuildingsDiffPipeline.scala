@@ -53,7 +53,7 @@ case class BuildingsDiffPipeline(geometryColumn: String, baseOutputURI: URI, gri
       input
     } else {
       val layout = layoutLevel.layout
-      val extentResolution: Int = gridResolution / maxZoom * layoutLevel.zoom / 12
+      val extentResolution: Int = gridResolution / 4
       val binOfTile = udf { (g: jts.Geometry, key: GenericRowWithSchema) =>
         val p = g.getCentroid
         val k  = getSpatialKey(key)
