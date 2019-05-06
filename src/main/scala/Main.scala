@@ -30,7 +30,7 @@ object Main
         val outputFormatOpt =
           Opts
             .option[String]("outputFormat",
-                            help = "Output format. Must be one of 'S3' or 'GeoJson'.")
+                            help = "Output format. Must be one of 'S3', 'GeoJson' or 'Orc'.")
             .withDefault("S3")
             .map(OutputFormat.withName(_))
         val buildingsUriOpt =

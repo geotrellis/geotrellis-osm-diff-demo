@@ -23,7 +23,7 @@ import vectorpipe.vectortile.VectorTileFeature
 
 object OutputFormat extends Enumeration {
   type OutputFormat = Value
-  val S3, GeoJson = Value
+  val S3, GeoJson, Orc = Value
 }
 
 class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], numPartitions: Int)(
@@ -128,7 +128,12 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], numPartitions: Int)(
     format match {
       case OutputFormat.S3 => makeTiles(uri)
       case OutputFormat.GeoJson => makeGeoJson(uri)
+      case OutputFormat.Orc => makeOrc(uri)
     }
+  }
+
+  private def makeOrc(outputPath: URI): Unit = {
+    diffDataFrame.write.orc(outputPath.toString)
   }
 
   private def makeGeoJson(outputPath: URI): Unit = {
