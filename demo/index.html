@@ -1,95 +1,200 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset='utf-8' />
+  <head>
+    <meta charset="utf-8" />
     <title>OSM Roads Comparison</title>
-    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.js'></script>
-    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.css' rel='stylesheet' />
-    <script src='./access-token.js' type="text/javascript"></script>
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.js"></script>
+    <link
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.css"
+      rel="stylesheet"
+    />
+    <script src="./access-token.js" type="text/javascript"></script>
     <style>
-        body { margin:0; padding:0; }
-        #map { position:absolute; top:0; bottom:0; width:100%; }
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+      #menu {
+        position: absolute;
+        background: #fff;
+        padding: 10px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="menu">
+      <input
+        id="vectorpipe"
+        type="radio"
+        name="rtoggle"
+        value="vectorpipe"
+        checked
+      />
+      <label for="vectorpipe">VectorPipe</label>
+      <input id="tippecanoe" type="radio" name="rtoggle" value="tippecanoe" />
+      <label for="tippecanoe">Tippecanoe</label>
+    </div>
+    <script>
+      // Helper functions
+      function getCirclePaintProperties(osmAttributeName) {
+        return {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            4,
+            ["match", ["to-string", ["get", osmAttributeName]], ["true"], 1, 0],
+            11,
+            ["match", ["to-string", ["get", osmAttributeName]], ["true"], 3, 0],
+            12,
+            0
+          ],
+          "circle-color": "#fa7921"
+        };
+      }
 
-<div id='map'></div>
-<script>
+      function getPolygonPaintProperties(osmAttributeName, isString = false) {
+        return {
+          "fill-color": [
+            "match",
+            ["to-string", ["get", osmAttributeName]],
+            ["true"],
+            "#fa7921",
+            "#b8c5d2"
+          ],
+          "fill-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0, 12, 1]
+        };
+      }
 
-var map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/light-v9',
-    zoom: 12,
-    center: [104.919430, 11.565971 ]
-});
+      function mouseEnterHandler(e) {
+        if (e.features && e.features[0] && e.features[0].properties) {
+          var feature = e.features[0];
+          var props = feature.properties;
+          console.log(props);
+        }
+      }
 
-var osmLayer = {
-    "id": "cambodia-osm-roads",
-    "type": "line",
-    "source": {
-        "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/cambodia-v6/osm-roads/{z}/{x}/{y}.mvt"],
-        "minzoom": 12,
-        "maxzoom": 12
-    },
-    "source-layer": "osm-roads",
-    "paint": {
-        "line-opacity": 0.8,
-        "line-color": "blue"
-    }
-};
+      function setVisibility(layers, isVisible) {
+        var visibility = isVisible ? "visible" : "none";
+        layers.forEach(l =>
+          map.setLayoutProperty(l.id, "visibility", visibility)
+        );
+      }
 
-var oiLayer = {
-    "id": "cambodia-oi-roads",
-    "type": "fill",
-    "source": {
-        "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/cambodia-v6/oi-roads/{z}/{x}/{y}.mvt"],
-        "minzoom": 12,
-        "maxzoom": 12
-    },
-    "source-layer": "oi-roads",
-    "paint": {
-        "fill-opacity": 0.5,
-        "fill-color": "green"
-    }
-};
+      function switchLayer(event) {
+        var layerType = event.target.id;
+        setVisibility(Object.values(tileLayers).flat(), false);
+        setVisibility(tileLayers[layerType], true);
+      }
 
-var diffLayer = {
-    "id": "cambodia-diff-roads",
-    "type": "line",
-    "source": {
-        "type": "vector",
-        "tiles": ["https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/cambodia-v7/osm-diff/{z}/{x}/{y}.mvt"],
-        "minzoom": 12,
-        "maxzoom": 12
-    },
-    "source-layer": "osm-diff",
-    "paint": {
-        "line-opacity": 0.8,
-        "line-color": "red"
-    }
+      // Create map
+      var map = new mapboxgl.Map({
+        container: "map",
+        style: "mapbox://styles/mapbox/light-v9",
+        // style: 'mapbox://styles/azavea-af/cjv741qqm2qoh1ftawyikyb5x',
+        zoom: 12,
+        // Dover, Delaware
+        // center: [-75.5244, 39.1582]
+        // Monterey, CA
+        center: [-121.888333, 36.5885]
+      });
+      map.addControl(new mapboxgl.NavigationControl());
 
-}
+      // Define vectorpipe tile layers
+      var vpBuildingsTileUrl =
+        "https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/spark-msft-buildings-california-v03/{z}/{x}/{y}.mvt";
+      var vpBuildingDiffLayer = {
+        id: "vectorpipe-buildings-diff",
+        type: "fill",
+        source: {
+          type: "vector",
+          tiles: [vpBuildingsTileUrl],
+          minzoom: 11,
+          maxzoom: 12
+        },
+        "source-layer": "msft_buildings",
+        paint: getPolygonPaintProperties("hasOsm")
+      };
+      var vpBuildingCircleLayer = {
+        id: "vectorpipe-circle-diff",
+        type: "circle",
+        source: {
+          type: "vector",
+          tiles: [vpBuildingsTileUrl],
+          minzoom: 0,
+          maxzoom: 12
+        },
+        "source-layer": "msft_buildings",
+        paint: getCirclePaintProperties("hasOsm")
+      };
 
-map.on('load', function() {
-    map.addLayer(oiLayer);
-    // map.addLayer(osmLayer);
-    map.addLayer(diffLayer);
-});
+      // Define tippecanoe tile layers
+      var msftBuildingsTippecanoeTileUrl =
+        "https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/tippecanoe-msft-buildings-california-v01/{z}/{x}/{y}.pbf";
+      var tcBuildingDiffLayer = {
+        id: "tippecanoe-buildings-diff",
+        type: "fill",
+        source: {
+          type: "vector",
+          tiles: [msftBuildingsTippecanoeTileUrl],
+          minzoom: 11,
+          maxzoom: 12
+        },
+        "source-layer": "californiadiff",
+        paint: getPolygonPaintProperties("has_osm", true)
+      };
+      var tcBuildingCircleLayer = {
+        id: "tippecanoe-circle-diff",
+        type: "circle",
+        source: {
+          type: "vector",
+          tiles: [msftBuildingsTippecanoeTileUrl],
+          minzoom: 1,
+          maxzoom: 12
+        },
+        filter: ["==", ["get", "has_osm"], "true"],
+        "source-layer": "californiadiff",
+        paint: getCirclePaintProperties("has_osm")
+      };
 
-map.on("mouseenter", "osm-roads", function(e) {
-    map.getCanvas().style.cursor = 'pointer';
-    if (e.features && e.features[0] && e.features[0].properties) {
-        var feature = e.features[0];
-        var props = feature.properties;
-        console.log(props);
-    }
-});
+      // Add tile layers to map
+      var tileLayers = {
+        vectorpipe: [vpBuildingDiffLayer, vpBuildingCircleLayer],
+        tippecanoe: [tcBuildingDiffLayer, tcBuildingCircleLayer]
+      };
 
-map.addControl(new mapboxgl.NavigationControl());
-</script>
+      map.on("load", function() {
+        Object.values(tileLayers)
+          .flat()
+          .forEach(l => {
+            map.addLayer(l, "waterway-label");
+            map.on("mouseenter", l.id, mouseEnterHandler);
+          });
 
-</body>
+        if (document.getElementById("vectorpipe").checked) {
+          setVisibility(tileLayers["tippecanoe"], false);
+        } else {
+          setVisibility(tileLayers["vectorpipe"], false);
+        }
+      });
+
+      // Setup tile layer switcher
+      var menu = document.getElementById("menu");
+      var inputs = menu.getElementsByTagName("input");
+      for (var i = 0; i < inputs.length; i++) {
+        inputs[i].onclick = switchLayer;
+      }
+    </script>
+  </body>
 </html>
