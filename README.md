@@ -27,19 +27,17 @@ GeoJSON and ORC files up to ~100mb, you can probably run locally. Much larger ar
 
 Start SBT shell with `./sbt`, then run:
 ```
-test:runMain oiosmdiff.Main <path to orc file> <path to geojson file> <s3OutputPathPrefix>
+test:runMain osmdiff.Main --buildings <URL to MSFT buildings zip file> <s3 path to orc file> <s3OutputPathPrefix>
 ```
 
 Note that the paths to the OSM and GeoJSON file should be prefixed with `file://` and point to local files. 
 
 ## EMR
 
-__UNTESTED__
-
 Start SBT shell with `./sbt`, then run:
 ```
-sparkSubmit <s3 path to orc file> <s3 path to geojson file> <s3OutputPathPrefix>
+sparkSubmit --buildings <URL to MSFT buildings zip file> <s3 path to orc file> <s3OutputPathPrefix>
 ```
 
-Note that when running in this mode, every argument above should start with `s3://`.
+Note that when running in this mode, each S3 argument above should start with `s3://`.
  
