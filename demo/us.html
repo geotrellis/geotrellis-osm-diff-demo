@@ -102,82 +102,9 @@
       map.on("load", function() {
         map.addLayer(tcBuildingDiffLayer, "waterway-label");
         map.on("mouseenter", tcBuildingDiffLayer.id, mouseEnterHandler);
-        if (!getJsonFromUrl(window.location.href).safari) {
-          map.addLayer(tcBuildingCircleLayer, "waterway-label");
-          map.on("mouseenter", tcBuildingCircleLayer.id, mouseEnterHandler);
-        }
+        map.addLayer(tcBuildingCircleLayer, "waterway-label");
+        map.on("mouseenter", tcBuildingCircleLayer.id, mouseEnterHandler);
       });
-
-      // Extra stuff for easter egg
-      if (getJsonFromUrl(window.location.href).safari) {
-        map.loadImage("./giraffe.png", (error, image) => {
-          // Hope that the map is loaded by now...
-          window.setTimeout(() => {
-            if (error) throw error;
-            map.addImage("giraffe", image);
-            var tcBuildingSafariLayer = {
-              id: "tippecanoe-circle-diff",
-              type: "symbol",
-              source: {
-                type: "vector",
-                tiles: [msftBuildingsTippecanoeTileUrl],
-                minzoom: 1,
-                maxzoom: 11
-              },
-              filter: ["==", ["get", "has_osm"], "true"],
-              "source-layer": "usdiff",
-              layout: {
-                "icon-image": "giraffe",
-                "icon-size": 0.5
-              },
-              paint: {
-                "icon-opacity": [
-                  "interpolate",
-                  ["linear"],
-                  ["zoom"],
-                  11,
-                  1,
-                  12,
-                  0
-                ]
-              }
-            };
-            map.addLayer(tcBuildingSafariLayer, "waterway-label");
-            map.on("mouseenter", tcBuildingSafariLayer.id, mouseEnterHandler);
-          }, 500);
-        });
-      }
-
-      function getJsonFromUrl(url) {
-        if (!url) url = location.href;
-        var question = url.indexOf("?");
-        var hash = url.indexOf("#");
-        if (hash == -1 && question == -1) return {};
-        if (hash == -1) hash = url.length;
-        var query =
-          question == -1 || hash == question + 1
-            ? url.substring(hash)
-            : url.substring(question + 1, hash);
-        var result = {};
-        query.split("&").forEach(function(part) {
-          if (!part) return;
-          part = part.split("+").join(" "); // replace every + with space, regexp-free version
-          var eq = part.indexOf("=");
-          var key = eq > -1 ? part.substr(0, eq) : part;
-          var val = eq > -1 ? decodeURIComponent(part.substr(eq + 1)) : "";
-          var from = key.indexOf("[");
-          if (from == -1) result[decodeURIComponent(key)] = val;
-          else {
-            var to = key.indexOf("]", from);
-            var index = decodeURIComponent(key.substring(from + 1, to));
-            key = decodeURIComponent(key.substring(0, from));
-            if (!result[key]) result[key] = [];
-            if (!index) result[key].push(val);
-            else result[key][index] = val;
-          }
-        });
-        return result;
-      }
     </script>
   </body>
 </html>
