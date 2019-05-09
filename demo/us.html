@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>OSM Buildings Comparison</title>
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.js"></script>
+    <link
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v0.52.0/mapbox-gl.css"
+      rel="stylesheet"
+    />
+    <script src="./access-token.js" type="text/javascript"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+      // Helper functions
+      function getPolygonPaintProperties(osmAttributeName, isString = false) {
+        return {
+          "fill-color": [
+            "match",
+            ["to-string", ["get", osmAttributeName]],
+            ["true"],
+            "#fa7921",
+            "#b8c5d2"
+          ],
+          "fill-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0, 12, 1]
+        };
+      }
+
+      function mouseEnterHandler(e) {
+        if (e.features && e.features[0] && e.features[0].properties) {
+          var feature = e.features[0];
+          var props = feature.properties;
+          console.log(props);
+        }
+      }
+
+      // Create map
+      var map = new mapboxgl.Map({
+        container: "map",
+        style: "mapbox://styles/mapbox/light-v9",
+        zoom: 12,
+        // Dover, Delaware
+        // center: [-75.5244, 39.1582]
+        // Monterey, CA
+        center: [-121.888333, 36.5885]
+      });
+      map.addControl(new mapboxgl.NavigationControl());
+
+      // Define tippecanoe tile layers
+      var msftBuildingsTippecanoeTileUrl =
+        "https://s3.amazonaws.com/geotrellis-test/oi-osm-diff/vectortiles/tippecanoe-msft-buildings-united-states-v01/{z}/{x}/{y}.pbf";
+      var tcBuildingDiffLayer = {
+        id: "tippecanoe-buildings-diff",
+        type: "fill",
+        source: {
+          type: "vector",
+          tiles: [msftBuildingsTippecanoeTileUrl],
+          minzoom: 11,
+          maxzoom: 12
+        },
+        "source-layer": "usdiff",
+        paint: getPolygonPaintProperties("has_osm", true)
+      };
+      var tcBuildingCircleLayer = {
+        id: "tippecanoe-circle-diff",
+        type: "fill",
+        source: {
+          type: "vector",
+          tiles: [msftBuildingsTippecanoeTileUrl],
+          minzoom: 1,
+          maxzoom: 12
+        },
+        filter: ["==", ["get", "has_osm"], "true"],
+        "source-layer": "usdiff",
+        paint: {
+          "fill-color": "#fa7921"
+        } //getCirclePaintProperties("has_osm")
+      };
+
+      // Add tile layers to map
+      var tileLayers = {
+        tippecanoe: [tcBuildingDiffLayer, tcBuildingCircleLayer]
+      };
+
+      map.on("load", function() {
+        map.addLayer(tcBuildingDiffLayer, "waterway-label");
+        map.on("mouseenter", tcBuildingDiffLayer.id, mouseEnterHandler);
+        if (!getJsonFromUrl(window.location.href).safari) {
+          map.addLayer(tcBuildingCircleLayer, "waterway-label");
+          map.on("mouseenter", tcBuildingCircleLayer.id, mouseEnterHandler);
+        }
+      });
+
+      // Extra stuff for easter egg
+      if (getJsonFromUrl(window.location.href).safari) {
+        map.loadImage("./giraffe.png", (error, image) => {
+          // Hope that the map is loaded by now...
+          window.setTimeout(() => {
+            if (error) throw error;
+            map.addImage("giraffe", image);
+            var tcBuildingSafariLayer = {
+              id: "tippecanoe-circle-diff",
+              type: "symbol",
+              source: {
+                type: "vector",
+                tiles: [msftBuildingsTippecanoeTileUrl],
+                minzoom: 1,
+                maxzoom: 11
+              },
+              filter: ["==", ["get", "has_osm"], "true"],
+              "source-layer": "usdiff",
+              layout: {
+                "icon-image": "giraffe",
+                "icon-size": 0.5
+              },
+              paint: {
+                "icon-opacity": [
+                  "interpolate",
+                  ["linear"],
+                  ["zoom"],
+                  11,
+                  1,
+                  12,
+                  0
+                ]
+              }
+            };
+            map.addLayer(tcBuildingSafariLayer, "waterway-label");
+            map.on("mouseenter", tcBuildingSafariLayer.id, mouseEnterHandler);
+          }, 500);
+        });
+      }
+
+      function getJsonFromUrl(url) {
+        if (!url) url = location.href;
+        var question = url.indexOf("?");
+        var hash = url.indexOf("#");
+        if (hash == -1 && question == -1) return {};
+        if (hash == -1) hash = url.length;
+        var query =
+          question == -1 || hash == question + 1
+            ? url.substring(hash)
+            : url.substring(question + 1, hash);
+        var result = {};
+        query.split("&").forEach(function(part) {
+          if (!part) return;
+          part = part.split("+").join(" "); // replace every + with space, regexp-free version
+          var eq = part.indexOf("=");
+          var key = eq > -1 ? part.substr(0, eq) : part;
+          var val = eq > -1 ? decodeURIComponent(part.substr(eq + 1)) : "";
+          var from = key.indexOf("[");
+          if (from == -1) result[decodeURIComponent(key)] = val;
+          else {
+            var to = key.indexOf("]", from);
+            var index = decodeURIComponent(key.substring(from + 1, to));
+            key = decodeURIComponent(key.substring(0, from));
+            if (!result[key]) result[key] = [];
+            if (!index) result[key].push(val);
+            else result[key][index] = val;
+          }
+        });
+        return result;
+      }
+    </script>
+  </body>
+</html>
