@@ -20,7 +20,7 @@ object Main
         val osmOrcUriOpt =
           Opts
             .argument[URI]("osmOrcUri")
-            .validate("oiGeoJsonUri must be an S3 or file Uri") { uri =>
+            .validate("osmOrcUri must be an S3 or file Uri") { uri =>
               uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("file")
             }
             .validate("osmOrcUri must be an .orc file") { _.getPath.endsWith(".orc") }
@@ -39,9 +39,8 @@ object Main
               "buildings",
               help =
                 "URI to GeoJson (optionally zipped) buildings file. If not provided, run for all US States.")
-            .validate("buildings must be an S3, HTTPS or file Uri") { uri =>
-              uri.getScheme.startsWith("s3") || uri.getScheme.startsWith("https") || uri.getScheme
-                .startsWith("file")
+            .validate("buildings must be an HTTPS or file Uri") { uri =>
+              uri.getScheme.startsWith("https") || uri.getScheme.startsWith("file")
             }
             .validate("buildings must be a .geojson or zip file") { uri =>
               uri.getPath.endsWith(".geojson") || uri.getPath.endsWith(".zip")
