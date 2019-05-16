@@ -51,9 +51,15 @@ object Main
             .option[Int]("numPartitions",
                          help = "Number of partitions for Spark HashPartitioner. Defaults to 64.")
             .withDefault(64)
+        val sourceOpt =
+          Opts
+            .option[String]("source",
+                            help = "RDD to write. Useful for debugging to write the input sources.")
+            .withDefault("diff")
+            .map(Source.withName(_))
 
-        (osmOrcUriOpt, outputPathOpt, buildingsUriOpt, numPartitionsOpt, outputFormatOpt).mapN {
-          (osmOrcUri, outputPath, buildingsUri, numPartitions, outputFormat) =>
+        (osmOrcUriOpt, outputPathOpt, buildingsUriOpt, numPartitionsOpt, outputFormatOpt, sourceOpt).mapN {
+          (osmOrcUri, outputPath, buildingsUri, numPartitions, outputFormat, source) =>
             val conf =
               new SparkConf()
                 .setAppName("OSM Diff: MSFT Buildings")
@@ -80,7 +86,7 @@ object Main
               }
               val buildingsDiff =
                 new BuildingsDiff(osmOrcUri, buildingUris, numPartitions)
-              buildingsDiff.write(outputPath, outputFormat)
+              buildingsDiff.write(source, outputPath, outputFormat)
             } catch {
               case e: Exception => throw e
             } finally {

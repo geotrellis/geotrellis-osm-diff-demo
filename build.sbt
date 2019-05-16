@@ -82,12 +82,7 @@ lazy val root = (project in file(".")).settings(
       "spark.shuffle.compress"            -> "true",
       "spark.shuffle.spill.compress"      -> "true",
       "spark.rdd.compress"                -> "true",
-      "spark.driver.extraJavaOptions"     -> "-Djava.library.path=/usr/local/lib",
-      "spark.executor.extraJavaOptions"   -> "-XX:+UseParallelGC -Dgeotrellis.s3.threads.rdd.write=64 -Djava.library.path=/usr/local/lib",
-      "spark.executorEnv.LD_LIBRARY_PATH" -> "/usr/local/lib"
-    ),
-    EmrConfig("spark-env").withProperties(
-      "LD_LIBRARY_PATH" -> "/usr/local/lib"
+      "spark.executor.extraJavaOptions"   -> "-XX:+UseParallelGC -Dgeotrellis.s3.threads.rdd.write=64",
     ),
     EmrConfig("yarn-site").withProperties(
       "yarn.resourcemanager.am.max-attempts" -> "1",

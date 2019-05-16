@@ -1,29 +1,40 @@
 package osmdiff
 
-import java.io.{BufferedReader, FileInputStream, InputStreamReader}
-import java.net.{URI, URL}
+import java.util.UUID
+
+import java.io.{BufferedReader, InputStreamReader}
+import java.net.URI
 import java.security.InvalidParameterException
-import java.util.UUID.randomUUID
 import java.util.zip.ZipInputStream
 
 import com.typesafe.scalalogging.LazyLogging
+import geotrellis.proj4.{CRS, LatLng}
 import geotrellis.vector.{Feature, Geometry}
 import geotrellis.vector.io._
-import geotrellis.vectortile.VString
 import spray.json.JsonReader
 import spray.json.JsonParser.ParsingException
-import vectorpipe.vectortile.VectorTileFeature
 
 import scala.collection.JavaConverters._
 
-case class GeoJsonFeature(id: String, source: String, geom: Geometry) {
-  def toVectorTileFeature: VectorTileFeature[Geometry] = {
-    Feature(geom, Map("tileId" -> VString(id), "source" -> VString(source)))
+case class FeatureWithId(id: UUID, geom: Geometry, data: Map[String, Any]) {
+  override def equals(obj: Any): Boolean = {
+    obj match {
+      case obj: FeatureWithId => obj.id == id
+      case _ => false
+    }
   }
+
+  override def hashCode(): Int = id.hashCode
 }
 
-object GeoJsonFeature extends Serializable with LazyLogging {
-  def readFromGeoJson(uri: URI, sourceName: String): Iterator[GeoJsonFeature] = {
+object FeatureWithId extends Serializable with LazyLogging {
+  def apply(geom: Geometry, data: Map[String, Any]): FeatureWithId =
+    FeatureWithId(UUID.randomUUID, geom, data)
+
+  def readFromGeoJson(uri: URI,
+                      sourceName: String,
+                      fromCrs: CRS = LatLng,
+                      toCrs: CRS = LatLng): Iterator[FeatureWithId] = {
     val inputStream = uri.getPath match {
       case p if p.endsWith(".geojson") || p.endsWith(".json") => {
         uri.toURL.openStream
@@ -50,7 +61,9 @@ object GeoJsonFeature extends Serializable with LazyLogging {
       try {
         val feature = jsonString.stripSuffix(",").parseGeoJson[Feature[Geometry, GeoJsonProperties]]
         if (feature.geom.isValid) {
-          Some(GeoJsonFeature(randomUUID().toString, sourceName, feature.geom))
+          val jtsGeom = feature.geom.reproject(fromCrs, toCrs).jtsGeom
+          jtsGeom.normalize
+          Some(FeatureWithId(Geometry(jtsGeom), Map("source" -> sourceName)))
         } else {
           invalidCount += 1
           logger.info(s"INVALID: ${invalidCount}")
