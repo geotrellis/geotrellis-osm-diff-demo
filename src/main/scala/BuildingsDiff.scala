@@ -79,14 +79,16 @@ class BuildingsDiff(osmOrcUri: URI, geoJsonUris: Seq[URI], numPartitions: Int)(
         geom.normalize
 
         val buildingType = row.getAs[String]("building_type")
+        val cleanBuildingType = buildingType.map { c: Char => if (c.isLetterOrDigit) c else ' ' }.trim
         val name         = row.getAs[String]("name")
-        // Workaround for the OSMesa geojson writer not properly escaping double quotes in strings,
-        //  which utterly flummoxes Tippecanoe
-        val cleanName = name.replace("\"", "'")
+        // Workaround for the OSMesa geojson writer not properly escaping basically anything,
+        //  which utterly flummoxes Tippecanoe.
+        // Solves unescaped double quotes, extra control characters in string, and spare backslashes
+        val cleanName = name.map { c: Char => if (c.isLetterOrDigit) c else ' ' }.trim
 
         val reprojectedGeom = Geometry(geom).reproject(LatLng, WebMercator)
         FeatureWithId(reprojectedGeom,
-                      Map("building_type" -> buildingType, "name" -> cleanName, "source" -> "osm"))
+                      Map("building_type" -> cleanBuildingType, "name" -> cleanName, "source" -> "osm"))
       }
       .flatMap { feature =>
         val keys = layout.mapTransform.keysForGeometry(feature.geom)
